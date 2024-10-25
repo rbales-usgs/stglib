@@ -142,11 +142,19 @@ def scale_vars(ds):
         p1scale = 1
     if ds["Pressure"].attrs["units"] == "Bar":
         convert = 10
+        converttxt = "Pressure data converted to decibar."
     else:
         convert = 1
 
     # applying offset, scale, and converting to dbar
-    ds["Pressure"] = ((ds["Pressure"] - (p1offset)) * convert) * p1scale
+    if p1offset != 0 or p1scale != 1 or convert != 1:
+        ds["Pressure"] = ((ds["Pressure"] - (p1offset)) * convert) * p1scale
+
+        txt = "Pressure data corrected using an offset of {} Bars and scale factor of {}. {}".format(
+            p1offset, p1scale, converttxt
+        )
+        ds = utils.insert_note(ds, "Pressure", txt)
+        ds = utils.insert_history(ds, txt)
 
     # temperature
     if "t_offset" in ds.attrs:
@@ -158,7 +166,14 @@ def scale_vars(ds):
     else:
         tscale = 1
 
-    ds["Tx_1211"] = (ds["Tx_1211"] - toffset) * tscale
+    if toffset != 0 or tscale != 1:
+        ds["Tx_1211"] = (ds["Tx_1211"] - toffset) * tscale
+
+        txt = "Temperature data corrected using an offset of {} Celsius and scale factor of {}.".format(
+            toffset, tscale
+        )
+        ds = utils.insert_note(ds, "Tx_1211", txt)
+        ds = utils.insert_history(ds, txt)
 
     # battery
     if "batt_offset" in ds.attrs:
@@ -170,7 +185,14 @@ def scale_vars(ds):
     else:
         bscale = 1
 
-    ds["Battery"] = (ds["Battery"] - boffset) * bscale
+    if boffset != 0 or bscale != 1:
+        ds["Battery"] = (ds["Battery"] - boffset) * bscale
+
+        txt = "Battery data corrected using an offset of {} V and scale factor of {}.".format(
+            boffset, bscale
+        )
+        ds = utils.insert_note(ds, "Battery", txt)
+        ds = utils.insert_history(ds, txt)
 
     return ds
 
@@ -184,6 +206,9 @@ def abs_drop_vars(ds):
         "mean_abs_data1",
         "mean_abs_data2",
         "mean_abs_data3",
+        "abs1",
+        "abs2",
+        "abs3",
     }
 
     for v in varnames:
@@ -262,17 +287,25 @@ def ds_add_attrs(ds):
         {"units": "V", "long_name": "Battery voltage", "epic_code": 106}
     )
 
-    for var in ds:
-        if "abs" in var:
-            x = int(f"{var}"[-1])
-            ds[var].attrs.update(
-                {
-                    "units": "counts",
-                    "long_name": f"Transducer {x} backscatter amplitude",
-                    "frequency": f"{(ds.attrs['AbsTxFrequency'][(x - 1)])/1000000} MHz",
-                    "transducer_offset_from_bottom": f"{(ds.attrs['initial_instrument_height'])}",
-                }
-            )
+    ds["abs"].attrs.update(
+        {
+            "units": "normalized counts",
+            "long_name": "Transducer backscatter amplitude",
+            "transducer_offset_from_bottom": f"{(ds.attrs['initial_instrument_height'])}",
+        }
+    )
+
+    # for var in ds:
+    # if "abs" in var:
+    # x = int(f"{var}"[-1])
+    # ds[var].attrs.update(
+    # {
+    # "units": "counts",
+    # "long_name": f"Transducer {x} backscatter amplitude",
+    # "frequency": f"{(ds.attrs['AbsTxFrequency'][(x - 1)])/1000000} MHz",
+    # "transducer_offset_from_bottom": f"{(ds.attrs['initial_instrument_height'])}",
+    # }
+    # )
 
     for var in ds:
         if "brange" in var:
@@ -281,22 +314,34 @@ def ds_add_attrs(ds):
                 {
                     "units": "m",
                     "long_name": f"Transducer {x} distance to boundary",
-                    "frequency": f"{ds.attrs['AbsTxFrequency'][(x - 1)]} MHz",
+                    "frequency": f"{ds.attrs['AbsTxFrequency'][(x - 1)]/1000000} MHz",
                     "note": "Calculated from average of abs values in burst",
                 }
             )
 
     for var in ds:
-        if "Sv" in var:
-            x = int(f"{var}"[2])
+        if "amp" in var:
+            x = int(f"{var}"[3])
             ds[var].attrs.update(
                 {
                     "units": "decibels (dB)",
                     "long_name": f"Transducer {x} backscatter strength",
+                    "standard_name": "sound_intensity_level_in_water",
                     "frequency": f"{(ds.attrs['AbsTxFrequency'][(x - 1)])/1000000} MHz",
                     "transducer_offset_from_bottom": f"{(ds.attrs['initial_instrument_height'])}",
                 }
             )
+
+    return ds
+
+
+def reorder_dims(ds):
+
+    print(f"Reordering dims for abs1, abs2, and abs3")
+
+    varnames = {"abs1", "abs2", "abs3"}
+    for v in varnames:
+        ds[v] = ds[v].transpose("time", "sample", "z")
 
     return ds
 
@@ -316,22 +361,26 @@ def add_brange(ds):
     return ds
 
 
-def add_sv(ds):
+def add_amp(ds):
     print(f"Adding backscatter strength variables in decibels (dB)")
 
     varnames = {"abs1", "abs2", "abs3"}
     for v in varnames:
         x = int(f"{v}"[-1])
-        if x == 1:
-            code = "1233"
-        elif x == 2:
-            code = "1234"
-        elif x == 3:
-            code = "1235"
-        sv_var = f"Sv{x}_{code}"
+        amp_var = f"amp{x}"
         var = ds[v] * 65536
         var = var.where(var != 0)
-        ds[sv_var] = 20 * (np.log10(var))
+        ds[amp_var] = 20 * (np.log10(var))
+
+    return ds
+
+
+def combine_vars(ds):
+    ds["frequency"] = ds.attrs["AbsTxFrequency"] / 1000000
+    ds["frequency"].attrs.update({"units": "MHz", "long_name": "transducer frequency"})
+    ds["abs"] = xr.DataArray(
+        [ds.abs1, ds.abs2, ds.abs3], dims=["frequency", "time", "sample", "z"]
+    )
 
     return ds
 
@@ -428,14 +477,21 @@ def cdf2nc(cdf_filename, atmpres=False):
     ds = utils.create_nominal_instrument_depth(ds)
     ds = utils.add_start_stop_time(ds)
     ds = utils.add_delta_t(ds)
+    ds = utils.shift_time(ds, 0)
     ds = aqdutils.ds_swap_dims(ds)
     ds = aqdutils.ds_rename(ds)
 
-    ds = abs_drop_vars(ds)
+    # ds = abs_drop_vars(ds)
+
+    ds = reorder_dims(ds)
 
     ds = add_brange(ds)
 
-    ds = add_sv(ds)
+    ds = add_amp(ds)
+
+    ds = combine_vars(ds)
+
+    ds = abs_drop_vars(ds)
 
     ds = utils.add_min_max(ds)
 
