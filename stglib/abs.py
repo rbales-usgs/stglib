@@ -127,6 +127,18 @@ def abs_rename(ds):
         if v in ds:
             ds = ds.rename({v: varnames[v]})
 
+    for var in ds.data_vars:
+        if "abs" in var:
+            x = int(f"{var}"[-1])
+            ds[var].attrs.update(
+                {
+                    "units": "counts",
+                    "long_name": f"Transducer {x} backscatter amplitude",
+                    "frequency": f"{(ds.attrs['AbsTxFrequency'][(x - 1)])/1000000} MHz",
+                    "transducer_offset_from_bottom": f"{(ds.attrs['initial_instrument_height'])}",
+                }
+            )
+
     return ds
 
 
@@ -295,18 +307,6 @@ def ds_add_attrs(ds):
         }
     )
 
-    # for var in ds:
-    # if "abs" in var:
-    # x = int(f"{var}"[-1])
-    # ds[var].attrs.update(
-    # {
-    # "units": "counts",
-    # "long_name": f"Transducer {x} backscatter amplitude",
-    # "frequency": f"{(ds.attrs['AbsTxFrequency'][(x - 1)])/1000000} MHz",
-    # "transducer_offset_from_bottom": f"{(ds.attrs['initial_instrument_height'])}",
-    # }
-    # )
-
     for var in ds:
         if "brange" in var:
             x = int(f"{var}"[-1])
@@ -324,7 +324,7 @@ def ds_add_attrs(ds):
             x = int(f"{var}"[3])
             ds[var].attrs.update(
                 {
-                    "units": "decibels (dB)",
+                    "units": "decibels",
                     "long_name": f"Transducer {x} backscatter strength",
                     "standard_name": "sound_intensity_level_in_water",
                     "frequency": f"{(ds.attrs['AbsTxFrequency'][(x - 1)])/1000000} MHz",
@@ -336,8 +336,6 @@ def ds_add_attrs(ds):
 
 
 def reorder_dims(ds):
-
-    print(f"Reordering dims for abs1, abs2, and abs3")
 
     varnames = {"abs1", "abs2", "abs3"}
     for v in varnames:
@@ -362,7 +360,7 @@ def add_brange(ds):
 
 
 def add_amp(ds):
-    print(f"Adding backscatter strength variables in decibels (dB)")
+    print(f"Adding backscatter strength variables (amp) in decibels (dB)")
 
     varnames = {"abs1", "abs2", "abs3"}
     for v in varnames:
@@ -376,11 +374,33 @@ def add_amp(ds):
 
 
 def combine_vars(ds):
+    print(
+        f"Combining raw backscatter amplitude variables (ABS1, ABS2, ABS3) into one matrix variable (abs)"
+    )
+
     ds["frequency"] = ds.attrs["AbsTxFrequency"] / 1000000
     ds["frequency"].attrs.update({"units": "MHz", "long_name": "transducer frequency"})
-    ds["abs"] = xr.DataArray(
-        [ds.abs1, ds.abs2, ds.abs3], dims=["frequency", "time", "sample", "z"]
-    )
+    ds["frequency"] = ds["frequency"].sortby(ds["frequency"])
+
+    abs_vars = {}
+
+    # create dictionary of amp variables (may be different for each deployment, up to four amp variables)
+    for var in ds:
+        if "mean" not in var and "abs" in var:
+            abs_vars[str(var)] = float(ds[var].attrs["frequency"][0:3])
+
+    # use frequency to sort order of amp variables
+    abs_vars = dict(sorted(abs_vars.items(), key=lambda item: item[1]))
+    abs_vars = [*abs_vars]
+    abs_vars
+
+    # convert amp variable list to object list
+    var_names = []
+    for i in range(len(abs_vars)):
+        var_names.append(ds[abs_vars[i]])
+        var_names
+
+    ds["abs"] = xr.DataArray(var_names, dims=["frequency", "time", "sample", "z"])
 
     return ds
 
@@ -480,8 +500,6 @@ def cdf2nc(cdf_filename, atmpres=False):
     ds = utils.shift_time(ds, 0)
     ds = aqdutils.ds_swap_dims(ds)
     ds = aqdutils.ds_rename(ds)
-
-    # ds = abs_drop_vars(ds)
 
     ds = reorder_dims(ds)
 
