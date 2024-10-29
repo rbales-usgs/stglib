@@ -13,6 +13,33 @@ scripts = Path(sysconfig.get_path("scripts"))
 cwd = "stglib/tests/data"
 
 
+def abs_raw(glob_att, config_yaml):
+    result = subprocess.run(
+        [scripts / "runabsmat2cdf.py", glob_att, config_yaml],
+        capture_output=True,
+        cwd=cwd,
+    )
+    assert "Finished writing data" in result.stdout.decode("utf8")
+
+
+def abs_nc(nc_file, atmpres=None):
+    if atmpres is not None:
+        runlist = [scripts / "runabscdf2nc.py", nc_file, "--atmpres", atmpres]
+    else:
+        runlist = [scripts / "runabscdf2nc.py", nc_file]
+    result = subprocess.run(
+        runlist,
+        capture_output=True,
+        cwd=cwd,
+    )
+    assert "Done writing netCDF file" in result.stdout.decode("utf8")
+
+
+def test_abs():
+    sg_raw("glob_att1126_abs_test_msl.txt", "config_1126abs910_abs_test.yaml")
+    sg_nc("1123abs910_test-raw.cdf")
+
+
 def exo_raw(glob_att, config_yaml):
     result = subprocess.run(
         [scripts / "runexocsv2cdf.py", glob_att, config_yaml],
