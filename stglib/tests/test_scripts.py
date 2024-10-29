@@ -36,8 +36,8 @@ def abs_nc(nc_file, atmpres=None):
 
 
 def test_abs():
-    sg_raw("glob_att1126_abs_test_msl.txt", "config_1126abs910_abs_test.yaml")
-    sg_nc("1123abs910_test-raw.cdf")
+    abs_raw("glob_att1126_abs_test_msl.txt", "config_1126abs910_abs_test.yaml")
+    abs_nc("1123abs910_test-raw.cdf")
 
 
 def exo_raw(glob_att, config_yaml):
