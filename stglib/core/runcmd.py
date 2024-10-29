@@ -391,6 +391,11 @@ def runsgnc2waves(args=None):
 def runots():
     args = stglib.cmd.runots_parser().parse_args()
 
+    if args.instrument == "abs":
+        if args.step == "mat2cdf":
+            runabsmat2cdf(args)
+        elif args.step == "cdf2nc":
+            runabscdf2nc(args)
     if args.instrument == "aqd":
         if args.step == "hdr2cdf":
             runaqdhdr2cdf(args)
