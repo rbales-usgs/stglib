@@ -337,9 +337,9 @@ def ds_add_attrs(ds):
 
 def reorder_dims(ds):
 
-    varnames = {"abs1", "abs2", "abs3"}
-    for v in varnames:
-        ds[v] = ds[v].transpose("time", "sample", "z")
+    for var in ds:
+        if "mean" not in var and "abs" in var:
+            ds[var] = ds[var].transpose("time", "sample", "z")
 
     return ds
 
@@ -348,13 +348,20 @@ def add_brange(ds):
 
     print(f"Adding distance to boundary variables (brange)")
 
-    varnames = {"abs1", "abs2", "abs3"}
-    for v in varnames:
-        x = int(f"{v}"[-1])
-        vmean = ds[v].mean(dim="sample").where(ds["bindist"] > 0.20, drop=False)
-        index = vmean.argmax(axis=-1)
-        brange_var = f"brange{x}"
-        ds[brange_var] = ds["bindist"][index]
+    for var in ds:
+        if "mean" not in var and "abs" in var:
+            x = int(f"{var}"[-1])
+            index = (
+                ds.bindist > 0.2
+            ).values  # index correct bins (exclude blanking distance)
+            vmean = (
+                ds[var].mean(dim="sample").where(ds.z[index])
+            )  # get mean of abs data along sampling dim, only inlcude correct bins using index
+            brange = (
+                ds["bindist"][vmean.argmax(dim="z")]
+            ).values  # find position of maximum value along 'z' dim and use as index to get bin distance
+            brange_var = f"brange{x}"
+            ds[brange_var] = xr.DataArray(brange, dims="time")
 
     return ds
 
@@ -362,13 +369,13 @@ def add_brange(ds):
 def add_amp(ds):
     print(f"Adding backscatter strength variables (amp) in decibels (dB)")
 
-    varnames = {"abs1", "abs2", "abs3"}
-    for v in varnames:
-        x = int(f"{v}"[-1])
-        amp_var = f"amp{x}"
-        var = ds[v] * 65536
-        var = var.where(var != 0)
-        ds[amp_var] = 20 * (np.log10(var))
+    for var in ds:
+        if "mean" not in var and "abs" in var:
+            x = int(f"{var}"[-1])
+            amp_var = f"amp{x}"
+            amp = ds[var].values * 65536
+            amp = 20 * (np.log10(amp, where=(amp != 0)))
+            ds[amp_var] = xr.DataArray(amp, dims=["time", "sample", "z"])
 
     return ds
 
