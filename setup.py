@@ -80,6 +80,8 @@ setup(
             "runtcmcdf2nc.py=stglib.core.runcmd:runtcmcdf2nc",
             "runmcasc2cdf.py=stglib.core.runcmd:runmcasc2cdf",
             "runmccdf2nc.py=stglib.core.runcmd:runmccdf2nc",
+            "runabsmat2cdf.py=stglib.core.runcmd:runabsmat2cdf",
+            "runabscdf2nc.py=stglib.core.runcmd:runabscdf2nc",
             "runsgtid2cdf.py=stglib.core.runcmd:runsgtid2cdf",
             "runsgcdf2nc.py=stglib.core.runcmd:runsgcdf2nc",
             "runsgnc2waves.py=stglib.core.runcmd:runsgnc2waves",

@@ -1,5 +1,6 @@
 from . import (
     _version,
+    abs,
     aqd,
     argonaut,
     core,

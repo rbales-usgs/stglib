@@ -40,6 +40,22 @@ def run_cdf_to_nc(f, args):
     return ds
 
 
+def runabscdf2nc(args=None):
+    if not args:
+        args = stglib.cmd.abscdf2nc_parser().parse_args()
+
+    run_cdf_to_nc(stglib.abs.cdf2nc, args)
+
+
+def runabsmat2cdf(args=None):
+    if not args:
+        args = stglib.cmd.absmat2cdf_parser().parse_args()
+
+    metadata = get_metadata(args)
+
+    stglib.abs.mat2cdf(metadata)
+
+
 def runaqdcdf2nc(args=None):
     if not args:
         args = stglib.cmd.aqdcdf2nc_parser().parse_args()
