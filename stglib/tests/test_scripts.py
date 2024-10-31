@@ -15,7 +15,7 @@ cwd = "stglib/tests/data"
 
 def abs_raw(glob_att, config_yaml):
     result = subprocess.run(
-        [scripts / "runabsmat2cdf.py", glob_att, config_yaml],
+        [scripts / "runots.py", "abs", "mat2cdf", glob_att, config_yaml],
         capture_output=True,
         cwd=cwd,
     )
@@ -24,9 +24,16 @@ def abs_raw(glob_att, config_yaml):
 
 def abs_nc(nc_file, atmpres=None):
     if atmpres is not None:
-        runlist = [scripts / "runabscdf2nc.py", nc_file, "--atmpres", atmpres]
+        runlist = [
+            scripts / "runots.py",
+            "abs",
+            "cdf2nc",
+            nc_file,
+            "--atmpres",
+            atmpres,
+        ]
     else:
-        runlist = [scripts / "runabscdf2nc.py", nc_file]
+        runlist = [scripts / "runots.py", "abs", "cdf2nc", nc_file]
     result = subprocess.run(
         runlist,
         capture_output=True,
