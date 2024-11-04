@@ -173,6 +173,24 @@ def nc2waves_parser(description="Generate wave-statistics file"):
     return parser
 
 
+def absmat2cdf_parser():
+    description = "Convert ABS .mat files to raw .cdf format. Run this script from the directory containing ABS glob_att and config files."
+    parser = argparse.ArgumentParser(description=description)
+    gattsarg(parser)
+    yamlarg(parser)
+
+    return parser
+
+
+def abscdf2nc_parser():
+    description = "Convert raw .cdf format to processed .nc files, optionally compensating for atmospheric pressure"
+    parser = argparse.ArgumentParser(description=description)
+    cdfarg(parser)
+    atmarg(parser)
+
+    return parser
+
+
 def aqdhdr2cdf_parser():
     description = "Convert Aquadopp text files to raw .cdf format. Run this script from the directory containing Aquadopp files."
     parser = argparse.ArgumentParser(description=description)
